@@ -4,7 +4,11 @@ import SwiftUI
 struct TeamsSearchBoilerplateApp: App {
     var body: some Scene {
         WindowGroup {
-            AppFlowView()
+            if ProcessInfo.processInfo.arguments.contains("--portfolio-intro") {
+                PortfolioIntroView()
+            } else {
+                AppFlowView()
+            }
         }
     }
 }

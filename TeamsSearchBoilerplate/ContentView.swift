@@ -2,12 +2,18 @@ import SwiftUI
 
 struct ContentView: View {
     let onDismiss: () -> Void
+    private let automatedQuery: String?
 
     @State private var query = ""
     @State private var selectedFilter: SearchFilter?
     @State private var isLoadingResults = false
     @State private var filterLoadTask: Task<Void, Never>?
     @FocusState private var isSearchFocused: Bool
+
+    init(automatedQuery: String? = nil, onDismiss: @escaping () -> Void) {
+        self.automatedQuery = automatedQuery
+        self.onDismiss = onDismiss
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -28,6 +34,15 @@ struct ContentView: View {
             try? await Task.sleep(nanoseconds: 150_000_000)
             guard !Task.isCancelled else { return }
             isSearchFocused = true
+
+            if let automatedQuery {
+                try? await Task.sleep(nanoseconds: 450_000_000)
+                for character in automatedQuery {
+                    guard !Task.isCancelled else { return }
+                    query.append(character)
+                    try? await Task.sleep(nanoseconds: 500_000_000)
+                }
+            }
         }
         .onChange(of: query) { _, newValue in
             if newValue.isEmpty {
@@ -172,6 +187,8 @@ struct ContentView: View {
         Group {
             if isLoadingResults {
                 Color.clear
+            } else if automatedQuery != nil && selectedFilter == nil {
+                PortfolioSearchResults(query: query)
             } else if selectedFilter == .messages {
                 MessageSearchResults(query: query)
             } else if selectedFilter == .channels {
@@ -216,6 +233,126 @@ struct ContentView: View {
             guard !Task.isCancelled else { return }
             isLoadingResults = false
         }
+    }
+}
+
+private struct PortfolioSuggestion: Identifiable {
+    enum Kind {
+        case person(String)
+        case feature
+        case channel(String)
+        case group
+        case history
+    }
+
+    let id: String
+    let title: String
+    let subtitle: String
+    let kind: Kind
+    let queryStages: Set<String>
+
+    static let all = [
+        PortfolioSuggestion(id: "suchitra", title: "Suchitra Mohan", subtitle: "Senior content designer", kind: .person("ActivitySarah"), queryStages: ["s", "su"]),
+        PortfolioSuggestion(id: "sue", title: "Sue Grimshaw", subtitle: "Senior product manager", kind: .person("ActivityKeiko"), queryStages: ["s", "su"]),
+        PortfolioSuggestion(id: "sq-summarize", title: "SQ - Summarize", subtitle: "Outlook Team", kind: .feature, queryStages: ["s", "su", "sum", "summ"]),
+        PortfolioSuggestion(id: "studio", title: "Studio 8 All", subtitle: "Summer, Abby, Alex + 90", kind: .channel("StudioVAIcon"), queryStages: ["s", "su", "sum", "summ"]),
+        PortfolioSuggestion(id: "summer", title: "Summer Xuan", subtitle: "Senior product designer", kind: .person("ActivitySerena"), queryStages: ["sum", "summ"]),
+        PortfolioSuggestion(id: "copilot-card", title: "Summarize Copilot Card", subtitle: "Caleb, Cookie, Colin + 17", kind: .group, queryStages: ["sum", "summ"]),
+        PortfolioSuggestion(id: "research", title: "summarize research", subtitle: "Recent search", kind: .history, queryStages: ["summ"])
+    ]
+}
+
+private struct PortfolioSearchResults: View {
+    let query: String
+
+    private var suggestions: [PortfolioSuggestion] {
+        let normalized = query.lowercased()
+        return PortfolioSuggestion.all.filter { $0.queryStages.contains(normalized) }
+    }
+
+    var body: some View {
+        ScrollView {
+            LazyVStack(spacing: 0) {
+                ForEach(suggestions) { suggestion in
+                    PortfolioSuggestionRow(suggestion: suggestion, query: query)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                }
+            }
+            .animation(.easeOut(duration: 0.22), value: query)
+        }
+        .scrollIndicators(.hidden)
+    }
+}
+
+private struct PortfolioSuggestionRow: View {
+    let suggestion: PortfolioSuggestion
+    let query: String
+
+    var body: some View {
+        HStack(spacing: 14) {
+            artwork
+                .frame(width: 36, height: 36)
+
+            VStack(alignment: .leading, spacing: 2) {
+                highlightedTitle
+                    .font(.system(size: 17, weight: .regular))
+                    .foregroundStyle(TeamsColor.textPrimary)
+                    .lineLimit(1)
+
+                Text(suggestion.subtitle)
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundStyle(TeamsColor.textSecondary)
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.horizontal, 20)
+        .frame(height: 58)
+    }
+
+    @ViewBuilder
+    private var artwork: some View {
+        switch suggestion.kind {
+        case .person(let image):
+            Image(image)
+                .resizable()
+                .scaledToFill()
+                .clipShape(Circle())
+        case .feature:
+            ZStack {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(TeamsColor.interactive)
+                Image("CalendarIcon")
+                    .resizable()
+                    .frame(width: 16, height: 16)
+            }
+        case .channel(let image):
+            Image(image)
+                .resizable()
+                .scaledToFit()
+        case .group:
+            Image("GroupAvatar")
+                .resizable()
+                .scaledToFill()
+                .clipShape(Circle())
+        case .history:
+            Image("HistoryIcon")
+                .resizable()
+                .scaledToFit()
+        }
+    }
+
+    private var highlightedTitle: Text {
+        guard
+            !query.isEmpty,
+            let range = suggestion.title.range(of: query, options: .caseInsensitive)
+        else {
+            return Text(suggestion.title)
+        }
+
+        return Text(String(suggestion.title[..<range.lowerBound]))
+            + Text(String(suggestion.title[range])).bold()
+            + Text(String(suggestion.title[range.upperBound...]))
     }
 }
 
@@ -762,7 +899,8 @@ private struct SearchResultRow: View {
             }
         case .meeting:
             ZStack {
-                Circle().fill(TeamsColor.interactive)
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(TeamsColor.interactive)
                 Image("CalendarIcon")
                     .resizable()
                     .frame(width: 16, height: 16)

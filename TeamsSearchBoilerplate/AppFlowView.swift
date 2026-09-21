@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct AppFlowView: View {
+    @Environment(\.scenePhase) private var scenePhase
+
     private enum Stage {
         case loading
         case activity
@@ -8,6 +10,8 @@ struct AppFlowView: View {
     }
 
     @State private var stage = Stage.loading
+    @State private var loaderRunID = 0
+    @State private var hasEnteredBackground = false
 
     var body: some View {
         ZStack {
@@ -31,7 +35,7 @@ struct AppFlowView: View {
         }
         .background(Color.white)
         .preferredColorScheme(.light)
-        .task {
+        .task(id: loaderRunID) {
             guard stage == .loading else { return }
             try? await Task.sleep(nanoseconds: 1_500_000_000)
             guard !Task.isCancelled else { return }
@@ -39,17 +43,29 @@ struct AppFlowView: View {
                 stage = .activity
             }
         }
+        .onChange(of: scenePhase) { _, newPhase in
+            switch newPhase {
+            case .inactive, .background:
+                hasEnteredBackground = true
+            case .active where hasEnteredBackground:
+                hasEnteredBackground = false
+                loaderRunID += 1
+                stage = .loading
+            default:
+                break
+            }
+        }
     }
 }
 
-private struct LoaderView: View {
+struct LoaderView: View {
     @State private var isBreathing = false
 
     var body: some View {
         Image("TeamsLoader")
             .resizable()
-            .frame(width: 36, height: 38)
-            .frame(width: 48, height: 48)
+            .frame(width: 46.8, height: 49.4)
+            .frame(width: 62.4, height: 62.4)
             .scaleEffect(isBreathing ? 1.04 : 0.98)
             .opacity(isBreathing ? 1 : 0.84)
             .frame(maxWidth: .infinity, maxHeight: .infinity)

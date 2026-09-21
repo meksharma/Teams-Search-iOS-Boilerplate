@@ -17,8 +17,17 @@ A SwiftUI prototype of a Microsoft Teams mobile search flow.
 
 ## Run
 
-1. Open `TeamsSearchBoilerplate.xcodeproj`.
-2. Select an iPhone simulator.
-3. Run the `TeamsSearchBoilerplate` scheme.
+```bash
+git clone https://github.com/meksharma/Teams-Search-iOS-Boilerplate.git
+cd Teams-Search-iOS-Boilerplate
+open TeamsSearchBoilerplate.xcodeproj
+```
+
+In Xcode, select an iPhone simulator and choose a scheme:
+
+- `TeamsSearchBoilerplate`: interactive loader, Activity, and search flow.
+- `TeamsSearchPortfolioIntro`: looping portfolio intro with automated search typing.
+
+Edit the Swift files in `TeamsSearchBoilerplate/`, then commit and push changes normally with Git.
 
 The reference interaction recording is included as `real video of search.mp4`.
