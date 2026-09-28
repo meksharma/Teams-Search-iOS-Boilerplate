@@ -2,6 +2,11 @@
 
 A SwiftUI prototype of a Microsoft Teams mobile search flow.
 
+## Demo recordings
+
+- [Zero-input search](./Demos/01-zero-input-search.mp4) — opens Search from Activity and gently reveals zero-input suggestions.
+- [Query and filters](./Demos/02-query-and-filters.mp4) — types a query, reveals fresh results, and narrows them with People, Messages, and Channels.
+
 ## Included flows
 
 - Animated Teams loading screen
