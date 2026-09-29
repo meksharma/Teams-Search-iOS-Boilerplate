@@ -3,15 +3,23 @@ import SwiftUI
 struct ContentView: View {
     let onDismiss: () -> Void
     private let automatedQuery: String?
+    private let automatedFilterTitles: [String]
 
     @State private var query = ""
     @State private var selectedFilter: SearchFilter?
     @State private var isLoadingResults = false
+    @State private var showsZeroQueryContent = false
     @State private var filterLoadTask: Task<Void, Never>?
+    @State private var zeroQueryRevealTask: Task<Void, Never>?
     @FocusState private var isSearchFocused: Bool
 
-    init(automatedQuery: String? = nil, onDismiss: @escaping () -> Void) {
+    init(
+        automatedQuery: String? = nil,
+        automatedFilterTitles: [String] = [],
+        onDismiss: @escaping () -> Void
+    ) {
         self.automatedQuery = automatedQuery
+        self.automatedFilterTitles = automatedFilterTitles
         self.onDismiss = onDismiss
     }
 
@@ -34,13 +42,26 @@ struct ContentView: View {
             try? await Task.sleep(nanoseconds: 150_000_000)
             guard !Task.isCancelled else { return }
             isSearchFocused = true
+            revealZeroQueryContent()
 
             if let automatedQuery {
-                try? await Task.sleep(nanoseconds: 450_000_000)
+                try? await Task.sleep(nanoseconds: 1_400_000_000)
                 for character in automatedQuery {
                     guard !Task.isCancelled else { return }
                     query.append(character)
-                    try? await Task.sleep(nanoseconds: 500_000_000)
+                    try? await Task.sleep(nanoseconds: 360_000_000)
+                }
+
+                try? await Task.sleep(nanoseconds: 1_400_000_000)
+                for title in automatedFilterTitles {
+                    guard
+                        !Task.isCancelled,
+                        let filter = SearchFilter.allCases.first(where: { $0.rawValue == title })
+                    else {
+                        return
+                    }
+                    select(filter)
+                    try? await Task.sleep(nanoseconds: 1_800_000_000)
                 }
             }
         }
@@ -49,10 +70,15 @@ struct ContentView: View {
                 filterLoadTask?.cancel()
                 selectedFilter = nil
                 isLoadingResults = false
+                revealZeroQueryContent()
+            } else {
+                zeroQueryRevealTask?.cancel()
+                showsZeroQueryContent = false
             }
         }
         .onDisappear {
             filterLoadTask?.cancel()
+            zeroQueryRevealTask?.cancel()
         }
     }
 
@@ -61,7 +87,7 @@ struct ContentView: View {
             HStack(spacing: 16) {
                 Image("SearchIcon")
                     .resizable()
-                    .frame(width: 20, height: 20)
+                    .frame(width: 16, height: 16)
 
                 TextField("Search", text: $query)
                     .focused($isSearchFocused)
@@ -118,8 +144,11 @@ struct ContentView: View {
         ScrollView {
             VStack(spacing: 0) {
                 avatarCarousel
+                    .opacity(showsZeroQueryContent ? 1 : 0)
+                    .offset(y: showsZeroQueryContent ? 0 : 6)
+                    .animation(.easeOut(duration: 0.32), value: showsZeroQueryContent)
 
-                ForEach(ZeroQueryItem.items) { item in
+                ForEach(Array(ZeroQueryItem.items.enumerated()), id: \.element.id) { index, item in
                     Button {
                         if let query = item.query {
                             self.query = query
@@ -128,6 +157,13 @@ struct ContentView: View {
                         ZeroQueryRow(item: item)
                     }
                     .buttonStyle(.plain)
+                    .opacity(showsZeroQueryContent ? 1 : 0)
+                    .offset(y: showsZeroQueryContent ? 0 : 8)
+                    .animation(
+                        .easeOut(duration: 0.28)
+                            .delay(Double(index) * 0.035),
+                        value: showsZeroQueryContent
+                    )
                 }
             }
         }
@@ -180,31 +216,32 @@ struct ContentView: View {
             }
         }
         .frame(height: 44)
-        .padding(.horizontal, 16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 20)
     }
 
     private var searchResults: some View {
         Group {
             if isLoadingResults {
-                Color.clear
+                SearchResultsLoadingView()
+                    .transition(.opacity)
             } else if automatedQuery != nil && selectedFilter == nil {
                 PortfolioSearchResults(query: query)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
             } else if selectedFilter == .messages {
                 MessageSearchResults(query: query)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
             } else if selectedFilter == .channels {
                 ChannelSearchResults(query: query)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
             } else {
-                ScrollView {
-                    LazyVStack(spacing: 0) {
-                        ForEach(results) { result in
-                            SearchResultRow(result: result, query: query)
-                        }
-                    }
-                }
-                .scrollIndicators(.hidden)
+                SearchResultList(results: results, query: query)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .animation(.easeOut(duration: 0.22), value: isLoadingResults)
+        .animation(.easeOut(duration: 0.22), value: selectedFilter)
     }
 
     private var results: [SearchResult] {
@@ -234,6 +271,66 @@ struct ContentView: View {
             isLoadingResults = false
         }
     }
+
+    private func revealZeroQueryContent() {
+        zeroQueryRevealTask?.cancel()
+        showsZeroQueryContent = false
+        zeroQueryRevealTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 120_000_000)
+            guard !Task.isCancelled, query.isEmpty else { return }
+            showsZeroQueryContent = true
+        }
+    }
+}
+
+private struct SearchResultsLoadingView: View {
+    var body: some View {
+        VStack(spacing: 0) {
+            ForEach(0..<4, id: \.self) { index in
+                HStack(spacing: 12) {
+                    Circle()
+                        .fill(TeamsColor.raisedFill)
+                        .frame(width: 40, height: 40)
+
+                    VStack(alignment: .leading, spacing: 7) {
+                        Capsule()
+                            .fill(TeamsColor.raisedFill)
+                            .frame(width: index.isMultiple(of: 2) ? 154 : 128, height: 12)
+                        Capsule()
+                            .fill(TeamsColor.raisedFill.opacity(0.72))
+                            .frame(width: index.isMultiple(of: 2) ? 210 : 184, height: 10)
+                    }
+
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 16)
+                .frame(height: 64)
+            }
+        }
+        .accessibilityLabel("Loading search results")
+    }
+}
+
+private struct ResultRevealModifier: ViewModifier {
+    let isVisible: Bool
+    let index: Int
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(isVisible ? 1 : 0)
+            .offset(y: isVisible ? 0 : 7)
+            .animation(
+                .easeOut(duration: 0.24)
+                    .delay(min(Double(index) * 0.045, 0.22)),
+                value: isVisible
+            )
+    }
+}
+
+private extension View {
+    func resultReveal(isVisible: Bool, index: Int) -> some View {
+        modifier(ResultRevealModifier(isVisible: isVisible, index: index))
+    }
 }
 
 private struct PortfolioSuggestion: Identifiable {
@@ -249,38 +346,44 @@ private struct PortfolioSuggestion: Identifiable {
     let title: String
     let subtitle: String
     let kind: Kind
-    let queryStages: Set<String>
 
     static let all = [
-        PortfolioSuggestion(id: "suchitra", title: "Suchitra Mohan", subtitle: "Senior content designer", kind: .person("ActivitySarah"), queryStages: ["s", "su"]),
-        PortfolioSuggestion(id: "sue", title: "Sue Grimshaw", subtitle: "Senior product manager", kind: .person("ActivityKeiko"), queryStages: ["s", "su"]),
-        PortfolioSuggestion(id: "sq-summarize", title: "SQ - Summarize", subtitle: "Outlook Team", kind: .feature, queryStages: ["s", "su", "sum", "summ"]),
-        PortfolioSuggestion(id: "studio", title: "Studio 8 All", subtitle: "Summer, Abby, Alex + 90", kind: .channel("StudioVAIcon"), queryStages: ["s", "su", "sum", "summ"]),
-        PortfolioSuggestion(id: "summer", title: "Summer Xuan", subtitle: "Senior product designer", kind: .person("ActivitySerena"), queryStages: ["sum", "summ"]),
-        PortfolioSuggestion(id: "copilot-card", title: "Summarize Copilot Card", subtitle: "Caleb, Cookie, Colin + 17", kind: .group, queryStages: ["sum", "summ"]),
-        PortfolioSuggestion(id: "research", title: "summarize research", subtitle: "Recent search", kind: .history, queryStages: ["summ"])
+        PortfolioSuggestion(id: "suchitra", title: "Suchitra Mohan", subtitle: "Senior content designer", kind: .person("ActivitySarah")),
+        PortfolioSuggestion(id: "sue", title: "Sue Grimshaw", subtitle: "Senior product manager", kind: .person("ActivityKeiko")),
+        PortfolioSuggestion(id: "sq-summarize", title: "SQ - Summarize", subtitle: "Outlook Team", kind: .feature),
+        PortfolioSuggestion(id: "studio", title: "Studio 8 All", subtitle: "Summer, Abby, Alex + 90", kind: .channel("StudioVAIcon")),
+        PortfolioSuggestion(id: "summer", title: "Summer Xuan", subtitle: "Senior product designer", kind: .person("ActivitySerena")),
+        PortfolioSuggestion(id: "copilot-card", title: "Summarize Copilot Card", subtitle: "Caleb, Cookie, Colin + 17", kind: .group),
+        PortfolioSuggestion(id: "research", title: "summarize research", subtitle: "Recent search", kind: .history)
     ]
 }
 
 private struct PortfolioSearchResults: View {
     let query: String
+    @State private var showsRows = false
 
     private var suggestions: [PortfolioSuggestion] {
         let normalized = query.lowercased()
-        return PortfolioSuggestion.all.filter { $0.queryStages.contains(normalized) }
+        return PortfolioSuggestion.all.filter {
+            $0.title.localizedCaseInsensitiveContains(normalized)
+        }
     }
 
     var body: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
-                ForEach(suggestions) { suggestion in
+                ForEach(Array(suggestions.enumerated()), id: \.element.id) { index, suggestion in
                     PortfolioSuggestionRow(suggestion: suggestion, query: query)
-                        .transition(.opacity.combined(with: .move(edge: .top)))
+                        .transition(.opacity)
+                        .resultReveal(isVisible: showsRows, index: index)
                 }
             }
-            .animation(.easeOut(duration: 0.22), value: query)
         }
         .scrollIndicators(.hidden)
+        .task {
+            await Task.yield()
+            showsRows = true
+        }
     }
 }
 
@@ -320,11 +423,17 @@ private struct PortfolioSuggestionRow: View {
                 .clipShape(Circle())
         case .feature:
             ZStack {
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(TeamsColor.interactive)
+                Circle()
+                    .fill(Color.white)
+                    .overlay {
+                        Circle()
+                            .stroke(TeamsColor.interactive, lineWidth: 1.5)
+                    }
                 Image("CalendarIcon")
+                    .renderingMode(.template)
                     .resizable()
-                    .frame(width: 16, height: 16)
+                    .foregroundStyle(TeamsColor.interactive)
+                    .frame(width: 14, height: 14)
             }
         case .channel(let image):
             Image(image)
@@ -372,7 +481,7 @@ private struct MessageSearchResult: Identifiable {
             avatar: "LisaPhillips",
             source: "STCA Design",
             sourceIcon: "CalendarIcon",
-            snippet: "Weekly briefing — Sep 14. Top of mind: advance the iPad chat ship readiness through design alignment..."
+            snippet: "Summarize the latest design decisions and open questions before the weekly review."
         ),
         MessageSearchResult(
             sender: "Lina Chung",
@@ -380,7 +489,7 @@ private struct MessageSearchResult: Identifiable {
             avatar: "LinaChung",
             source: "Vibe coding community > General",
             sourceIcon: nil,
-            snippet: "Hi Lisa, the team is starting the next review Monday. This channel now has the latest files and notes..."
+            snippet: "Can you summarize the feedback from this thread before Monday’s review?"
         ),
         MessageSearchResult(
             sender: "Alina Lin",
@@ -388,7 +497,7 @@ private struct MessageSearchResult: Identifiable {
             avatar: "AlinaLin",
             source: "Studio VA",
             sourceIcon: nil,
-            snippet: "Posted the new prototype for the search experience. The interaction details and updated states are ready..."
+            snippet: "I used Copilot to summarize the prototype changes and updated interaction states."
         ),
         MessageSearchResult(
             sender: "Lisa Larsson",
@@ -396,19 +505,21 @@ private struct MessageSearchResult: Identifiable {
             avatar: "LisaLarsson",
             source: "Studio VA > Design",
             sourceIcon: nil,
-            snippet: "Here it is. I’m sharing one more option for the message results so we can compare the hierarchy..."
+            snippet: "Please summarize the options so the team can compare the hierarchy at a glance."
         )
     ]
 }
 
 private struct MessageSearchResults: View {
     let query: String
+    @State private var showsRows = false
 
     var body: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
-                ForEach(MessageSearchResult.items) { item in
+                ForEach(Array(MessageSearchResult.items.enumerated()), id: \.element.id) { index, item in
                     MessageSearchResultRow(item: item, query: query)
+                        .resultReveal(isVisible: showsRows, index: index)
                 }
 
                 Button(action: {}) {
@@ -423,9 +534,14 @@ private struct MessageSearchResults: View {
                     Color(red: 225 / 255, green: 225 / 255, blue: 225 / 255)
                         .frame(height: 0.5)
                 }
+                .resultReveal(isVisible: showsRows, index: MessageSearchResult.items.count)
             }
         }
         .scrollIndicators(.hidden)
+        .task {
+            await Task.yield()
+            showsRows = true
+        }
     }
 }
 
@@ -526,18 +642,18 @@ private struct ChannelSearchResult: Identifiable {
     let artwork: Artwork
 
     static let items = [
-        ChannelSearchResult(name: "FC - PSTN Lite", organization: "Teams Consumer", artwork: .teams),
-        ChannelSearchResult(name: "LinkedIn", organization: "Microsoft Design", artwork: .linkedIn),
-        ChannelSearchResult(name: "Livesite", organization: "Teams Consumer", artwork: .teams),
-        ChannelSearchResult(name: "Livesite - Teams MSA (Test)", organization: "Teams Consumer", artwork: .teams),
-        ChannelSearchResult(name: "om-idc-live-support", organization: "Outlook Mobile", artwork: .outlook),
+        ChannelSearchResult(name: "SQ - Summarize", organization: "Outlook Team", artwork: .teams),
+        ChannelSearchResult(name: "Summarize Copilot Card", organization: "Microsoft Design", artwork: .linkedIn),
+        ChannelSearchResult(name: "Summarize research", organization: "Teams Consumer", artwork: .teams),
+        ChannelSearchResult(name: "Summarize feedback", organization: "Teams Consumer", artwork: .teams),
+        ChannelSearchResult(name: "Summarize live support", organization: "Outlook Mobile", artwork: .outlook),
         ChannelSearchResult(
-            name: "Personal OS - Live Site",
+            name: "Summarize weekly updates",
             organization: "Outlook Team",
             artwork: .initials("OT", Color(red: 247 / 255, green: 232 / 255, blue: 196 / 255), Color(red: 126 / 255, green: 92 / 255, blue: 28 / 255))
         ),
         ChannelSearchResult(
-            name: "Suzhou Life",
+            name: "Summarize learning",
             organization: nil,
             artwork: .initials("SL", Color(red: 226 / 255, green: 47 / 255, blue: 0), Color.white)
         )
@@ -546,12 +662,14 @@ private struct ChannelSearchResult: Identifiable {
 
 private struct ChannelSearchResults: View {
     let query: String
+    @State private var showsRows = false
 
     var body: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
-                ForEach(ChannelSearchResult.items) { item in
+                ForEach(Array(ChannelSearchResult.items.enumerated()), id: \.element.id) { index, item in
                     ChannelSearchResultRow(item: item, query: query)
+                        .resultReveal(isVisible: showsRows, index: index)
                 }
 
                 Button(action: {}) {
@@ -566,9 +684,14 @@ private struct ChannelSearchResults: View {
                     Color(red: 225 / 255, green: 225 / 255, blue: 225 / 255)
                         .frame(height: 0.5)
                 }
+                .resultReveal(isVisible: showsRows, index: ChannelSearchResult.items.count)
             }
         }
         .scrollIndicators(.hidden)
+        .task {
+            await Task.yield()
+            showsRows = true
+        }
     }
 }
 
@@ -818,17 +941,24 @@ private struct SearchResult: Identifiable {
     let id = UUID()
     let title: String
     let kind: Kind
+    let subtitle: String?
+
+    init(title: String, kind: Kind, subtitle: String? = nil) {
+        self.title = title
+        self.kind = kind
+        self.subtitle = subtitle
+    }
 
     static let people = [
-        SearchResult(title: "Lisa Phillips", kind: .person("LisaPhillips")),
-        SearchResult(title: "Lina Chung", kind: .person("LinaChung")),
-        SearchResult(title: "Alina Lin", kind: .person("AlinaLin")),
-        SearchResult(title: "John, Lisa and 5+", kind: .group)
+        SearchResult(title: "Lisa Phillips", kind: .person("LisaPhillips"), subtitle: "Summarize Copilot Card"),
+        SearchResult(title: "Lina Chung", kind: .person("LinaChung"), subtitle: "Summarize research"),
+        SearchResult(title: "Alina Lin", kind: .person("AlinaLin"), subtitle: "Summarize design review"),
+        SearchResult(title: "John, Lisa and 5+", kind: .group, subtitle: "Summarize project group")
     ]
 
     static let files = [
-        SearchResult(title: "Linear regression metrics.pptx", kind: .powerpoint),
-        SearchResult(title: "Sales team list.docx", kind: .word)
+        SearchResult(title: "Summarize research findings.pptx", kind: .powerpoint),
+        SearchResult(title: "Summarize project notes.docx", kind: .word)
     ]
 
     static let messages = [
@@ -852,6 +982,29 @@ private struct SearchResult: Identifiable {
     ]
 }
 
+private struct SearchResultList: View {
+    let results: [SearchResult]
+    let query: String
+
+    @State private var showsRows = false
+
+    var body: some View {
+        ScrollView {
+            LazyVStack(spacing: 0) {
+                ForEach(Array(results.enumerated()), id: \.element.id) { index, result in
+                    SearchResultRow(result: result, query: query)
+                        .resultReveal(isVisible: showsRows, index: index)
+                }
+            }
+        }
+        .scrollIndicators(.hidden)
+        .task {
+            await Task.yield()
+            showsRows = true
+        }
+    }
+}
+
 private struct SearchResultRow: View {
     let result: SearchResult
     let query: String
@@ -861,10 +1014,18 @@ private struct SearchResultRow: View {
             leadingIcon
                 .frame(width: 24, height: 24)
 
-            highlightedTitle
-                .font(.system(size: 17))
-                .foregroundStyle(TeamsColor.textPrimary)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: .leading, spacing: 2) {
+                highlightedTitle
+                    .font(.system(size: 17))
+                    .foregroundStyle(TeamsColor.textPrimary)
+
+                if let subtitle = result.subtitle {
+                    highlighted(subtitle)
+                        .font(.system(size: 13))
+                        .foregroundStyle(TeamsColor.textSecondary)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             if case .person = result.kind {
                 Image("ContactIcon")
@@ -873,7 +1034,7 @@ private struct SearchResultRow: View {
             }
         }
         .padding(.horizontal, 24)
-        .frame(height: 48)
+        .frame(height: result.subtitle == nil ? 48 : 58)
         .contentShape(Rectangle())
     }
 
@@ -899,11 +1060,17 @@ private struct SearchResultRow: View {
             }
         case .meeting:
             ZStack {
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(TeamsColor.interactive)
+                Circle()
+                    .fill(Color.white)
+                    .overlay {
+                        Circle()
+                            .stroke(TeamsColor.interactive, lineWidth: 1.5)
+                    }
                 Image("CalendarIcon")
+                    .renderingMode(.template)
                     .resizable()
-                    .frame(width: 16, height: 16)
+                    .foregroundStyle(TeamsColor.interactive)
+                    .frame(width: 12, height: 12)
             }
         case .powerpoint:
             Image("PowerPointIcon").resizable()
@@ -917,16 +1084,20 @@ private struct SearchResultRow: View {
     }
 
     private var highlightedTitle: Text {
+        highlighted(result.title)
+    }
+
+    private func highlighted(_ value: String) -> Text {
         guard
             !query.isEmpty,
-            let range = result.title.range(of: query, options: .caseInsensitive)
+            let range = value.range(of: query, options: .caseInsensitive)
         else {
-            return Text(result.title)
+            return Text(value)
         }
 
-        return Text(String(result.title[..<range.lowerBound]))
-            + Text(String(result.title[range])).bold()
-            + Text(String(result.title[range.upperBound...]))
+        return Text(String(value[..<range.lowerBound]))
+            + Text(String(value[range])).bold()
+            + Text(String(value[range.upperBound...]))
     }
 }
 
