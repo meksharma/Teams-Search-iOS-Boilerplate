@@ -429,7 +429,7 @@ private struct PortfolioSuggestionRow: View {
                     .renderingMode(.template)
                     .resizable()
                     .foregroundStyle(Color.white)
-                    .frame(width: 14, height: 14)
+                    .frame(width: 20, height: 20)
             }
         case .channel(let image):
             Image(image)
@@ -443,7 +443,7 @@ private struct PortfolioSuggestionRow: View {
         case .history:
             Image("HistoryIcon")
                 .resizable()
-                .scaledToFit()
+                .frame(width: 24, height: 24)
         }
     }
 
@@ -1062,7 +1062,7 @@ private struct SearchResultRow: View {
                     .renderingMode(.template)
                     .resizable()
                     .foregroundStyle(Color.white)
-                    .frame(width: 12, height: 12)
+                    .frame(width: 16, height: 16)
             }
         case .powerpoint:
             Image("PowerPointIcon").resizable()
