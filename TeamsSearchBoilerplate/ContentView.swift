@@ -424,15 +424,11 @@ private struct PortfolioSuggestionRow: View {
         case .feature:
             ZStack {
                 Circle()
-                    .fill(Color.white)
-                    .overlay {
-                        Circle()
-                            .stroke(TeamsColor.interactive, lineWidth: 1.5)
-                    }
+                    .fill(TeamsColor.interactive)
                 Image("CalendarIcon")
                     .renderingMode(.template)
                     .resizable()
-                    .foregroundStyle(TeamsColor.interactive)
+                    .foregroundStyle(Color.white)
                     .frame(width: 14, height: 14)
             }
         case .channel(let image):
@@ -1061,15 +1057,11 @@ private struct SearchResultRow: View {
         case .meeting:
             ZStack {
                 Circle()
-                    .fill(Color.white)
-                    .overlay {
-                        Circle()
-                            .stroke(TeamsColor.interactive, lineWidth: 1.5)
-                    }
+                    .fill(TeamsColor.interactive)
                 Image("CalendarIcon")
                     .renderingMode(.template)
                     .resizable()
-                    .foregroundStyle(TeamsColor.interactive)
+                    .foregroundStyle(Color.white)
                     .frame(width: 12, height: 12)
             }
         case .powerpoint:
