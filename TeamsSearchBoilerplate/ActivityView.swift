@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ActivityView: View {
     let onSearch: () -> Void
+    var isSearchPressed = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -35,6 +36,9 @@ struct ActivityView: View {
                     Image("ActivitySearch")
                         .resizable()
                         .frame(width: 24, height: 24)
+                        .scaleEffect(isSearchPressed ? 0.88 : 1)
+                        .opacity(isSearchPressed ? 0.72 : 1)
+                        .animation(.easeOut(duration: 0.12), value: isSearchPressed)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Search")

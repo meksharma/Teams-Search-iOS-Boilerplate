@@ -21,7 +21,7 @@ struct PortfolioIntroView: View {
                     .allowsHitTesting(false)
                     .transition(.opacity)
             case .search:
-                ContentView(automatedQuery: "summ", onDismiss: {})
+                ContentView(automatedQuery: "summarize", onDismiss: {})
                     .id(runID)
                     .allowsHitTesting(false)
                     .transition(.opacity)
