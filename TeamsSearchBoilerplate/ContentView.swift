@@ -227,19 +227,20 @@ struct ContentView: View {
                     .transition(.opacity)
             } else if automatedQuery != nil && selectedFilter == nil {
                 PortfolioSearchResults(query: query)
-                    .transition(.opacity.combined(with: .move(edge: .top)))
+                    .transition(.opacity)
             } else if selectedFilter == .messages {
                 MessageSearchResults(query: query)
-                    .transition(.opacity.combined(with: .move(edge: .top)))
+                    .transition(.opacity)
             } else if selectedFilter == .channels {
                 ChannelSearchResults(query: query)
-                    .transition(.opacity.combined(with: .move(edge: .top)))
+                    .transition(.opacity)
             } else {
                 SearchResultList(results: results, query: query)
-                    .transition(.opacity.combined(with: .move(edge: .top)))
+                    .transition(.opacity)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .clipped()
         .animation(.easeOut(duration: 0.22), value: isLoadingResults)
         .animation(.easeOut(duration: 0.22), value: selectedFilter)
     }
@@ -366,6 +367,7 @@ private struct PortfolioSearchResults: View {
         let normalized = query.lowercased()
         return PortfolioSuggestion.all.filter {
             $0.title.localizedCaseInsensitiveContains(normalized)
+                || $0.subtitle.localizedCaseInsensitiveContains(normalized)
         }
     }
 
@@ -402,7 +404,7 @@ private struct PortfolioSuggestionRow: View {
                     .foregroundStyle(TeamsColor.textPrimary)
                     .lineLimit(1)
 
-                Text(suggestion.subtitle)
+                highlighted(suggestion.subtitle)
                     .font(.system(size: 13, weight: .regular))
                     .foregroundStyle(TeamsColor.textSecondary)
                     .lineLimit(1)
@@ -448,16 +450,20 @@ private struct PortfolioSuggestionRow: View {
     }
 
     private var highlightedTitle: Text {
+        highlighted(suggestion.title)
+    }
+
+    private func highlighted(_ value: String) -> Text {
         guard
             !query.isEmpty,
-            let range = suggestion.title.range(of: query, options: .caseInsensitive)
+            let range = value.range(of: query, options: .caseInsensitive)
         else {
-            return Text(suggestion.title)
+            return Text(value)
         }
 
-        return Text(String(suggestion.title[..<range.lowerBound]))
-            + Text(String(suggestion.title[range])).bold()
-            + Text(String(suggestion.title[range.upperBound...]))
+        return Text(String(value[..<range.lowerBound]))
+            + Text(String(value[range])).bold()
+            + Text(String(value[range.upperBound...]))
     }
 }
 
@@ -946,10 +952,7 @@ private struct SearchResult: Identifiable {
     }
 
     static let people = [
-        SearchResult(title: "Lisa Phillips", kind: .person("LisaPhillips"), subtitle: "Summarize Copilot Card"),
-        SearchResult(title: "Lina Chung", kind: .person("LinaChung"), subtitle: "Summarize research"),
-        SearchResult(title: "Alina Lin", kind: .person("AlinaLin"), subtitle: "Summarize design review"),
-        SearchResult(title: "John, Lisa and 5+", kind: .group, subtitle: "Summarize project group")
+        SearchResult(title: "Summer Xuan", kind: .person("ActivitySerena"))
     ]
 
     static let files = [

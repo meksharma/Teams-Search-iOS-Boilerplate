@@ -48,7 +48,7 @@ struct DemoRecordingView: View {
             ContentView(onDismiss: {})
         case .filterResults:
             ContentView(
-                automatedQuery: "summarize",
+                automatedQuery: "summ",
                 automatedFilterTitles: ["People", "Messages", "Channels"],
                 onDismiss: {}
             )
